@@ -1,7 +1,7 @@
 # Global Variables and Paths
 
 # === PATHS ===
-CITYSCAPES_PATH = "../archive"
+CITYSCAPES_PATH = "../cityscapes" # Path to the Cityscapes dataset
 
 # === TRAINING HYPERPARAMETERS ===
 BATCH_SIZE = 4
