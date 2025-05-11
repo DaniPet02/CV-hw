@@ -45,9 +45,9 @@ CV-HW/
         └── label/
 ```
 
-In `globals.py`, ensure the correct path is set:
+In `globals.py`, if you import the dataset out of the src folder and name it `cityscapes`, ensure the path is set to:
 ```python
-CITYSCAPES_PATH = "./cityscapes"
+CITYSCAPES_PATH = "../cityscapes"
 ```
 
 
