@@ -3,9 +3,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import globals as G
 
-# Simple Colormap for 20 classes
-COLORS = plt.cm.get_cmap('tab20', 20)
 
 def visualize_sample(image_tensor, mask_tensor, class_names=None):
     """
@@ -14,6 +13,7 @@ def visualize_sample(image_tensor, mask_tensor, class_names=None):
     """
     image_np = image_tensor.permute(1, 2, 0).cpu().numpy()  # [H, W, 3]
     mask_np = mask_tensor.cpu().numpy()  # [H, W]
+    colors = plt.cm.get_cmap('tab20', 20) # Simple Colormap for 20 classes
 
     plt.figure(figsize=(12, 5))
 
@@ -23,15 +23,19 @@ def visualize_sample(image_tensor, mask_tensor, class_names=None):
     plt.axis("off")
 
     plt.subplot(1, 2, 2)
-    plt.imshow(COLORS(mask_np))
+    plt.imshow(colors(mask_np))
     plt.title("Segmentation Mask")
     plt.axis("off")
 
-    if class_names:
-        plt.figtext(0.5, 0.01, f"Classes: {sorted(torch.unique(mask_tensor).tolist())}", ha="center")
+    # Textual Legend for classes
+    unique_classes = torch.unique(mask_tensor).tolist()
+    class_labels = [G.CITYSCAPES_CLASSES.get(c, f"Class {c}") for c in unique_classes]
+    legend_str = ", ".join([f"{c}: {label}" for c, label in zip(unique_classes, class_labels)])
+    plt.figtext(0.5, 0.01, f"Classes in mask → {legend_str}", ha="center", fontsize=10)
 
     plt.tight_layout()
     plt.show()
+
 
 def compute_mIoU(preds, targets, num_classes):
     """
@@ -56,6 +60,7 @@ def compute_mIoU(preds, targets, num_classes):
 
     # returns both mean and classes values
     return np.nanmean(ious), ious
+
 
 def visualize_predictions(image, pred_mask, true_mask):
     """

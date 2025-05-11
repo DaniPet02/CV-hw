@@ -6,15 +6,15 @@ Uncertainty-Aware Road Obstacle Identification
 
 The aim of this project is to develop a general, model-agnostic framework for road obstacle identification, starting from the outputs of any semantic segmentation network. The system will focus on anomaly-aware semantic segmentation to detect obstacles outside the predefined classes. This will allow for the identification of unknown obstacles as part of the segmentation output. To ensure that each identification is accompanied by a reliable measure of confidence, the framework will integrate uncertainty quantification through Conformal Prediction methods. By combining these components, the system will not only recognize potential obstacles but also provide formal statistical guarantees regarding the reliability of its predictions.
 
-## Main objectives:
+## Main Objectives
 
-- **Anomaly-Aware Obstacle Segmentation**: Integrate into a semantic segmentation model techniques to detect
+- **Anomaly-Aware Obstacle Segmentation**: integrate into a semantic segmentation model techniques to detect
 obstacles that fall outside known classes.
 
-- **Statistical Uncertainty Quantification**: obtain semantic segmentation outputs and obstacle proposals guar-
+- **Statistical Uncertainty Quantification**: btain semantic segmentation outputs and obstacle proposals guar-
 antees on detection reliability.
 
-- **Comprehensive Evaluation**: Benchmark the system using both detection performance metrics and uncertainty
+- **Comprehensive Evaluation**: benchmark the system using both detection performance metrics and uncertainty
 metrics.
 
 

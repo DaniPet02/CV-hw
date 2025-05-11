@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models
-import src.globals as G
+import globals as G
 
 class DeepLabV3Plus(nn.Module):
     def __init__(self, num_classes=G.NUM_CLASSES+1):  # +1 for 'unknown' class
@@ -22,7 +22,8 @@ class DeepLabV3Plus(nn.Module):
 
 if __name__ == "__main__":
     # Test the model
-    model = DeepLabV3Plus()
+    model = DeepLabV3Plus().to(G.DEVICE)  # Move model to device
+    model.eval()  # Set to evaluation mode
     x = torch.randn(1, 3, 512, 1024)  # Example input tensor
     output = model(x)
     print(f"Output shape: {output.shape}")  # Should be [1, num_classes, H, W]

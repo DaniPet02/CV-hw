@@ -12,6 +12,7 @@ import globals as G  # contains CITYSCAPES_PATH, BATCH_SIZE, ecc.
 
 class CityscapesDataset(Dataset):
     def __init__(self, image_paths, mask_paths, transform=None):
+        super().__init__()
         self.image_paths = image_paths
         self.mask_paths = mask_paths
         self.transform = transform
