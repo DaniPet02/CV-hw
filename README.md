@@ -18,13 +18,21 @@ antees on detection reliability.
 metrics.
 
 
-## Datasets
+## Project Links
+
+- [Google Drive](https://drive.google.com/drive/folders/1wAAcfMKKd2QQCEiel5mYU2wyu8uhUWSR?usp=share_link)
+- [Notion Page](https://www.notion.so/Presentation-1eea146c941d8017b40ec1013bf70646?pvs=4)
+
+
+## Useful Links
+
+### Datasets
 
 - [CityScapes](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
 - [LostAndFound](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [FishyScapes](https://fishyscapes.com)
 
-## Papers
+### Papers
 
 - [Conformal Semantic Image Segmentation Post-hoc Quantification of Predictive Uncertainty](https://arxiv.org/pdf/2405.05145)
 - [A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification](https://arxiv.org/pdf/2107.07511)
