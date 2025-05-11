@@ -32,6 +32,25 @@ metrics.
 - [LostAndFound](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [FishyScapes](https://fishyscapes.com)
 
+To avoid overloading the Git repository, download the CityScapes dataset from the link above and ensure it has the following structure:
+
+```
+CV-HW/
+└── cityscapes/
+    ├── train/
+    │   ├── img/     ← RGB images
+    │   └── label/   ← segmentation masks
+    └── val/
+        ├── img/
+        └── label/
+```
+
+In `globals.py`, ensure the correct path is set:
+```python
+CITYSCAPES_PATH = "./cityscapes"
+```
+
+
 ### Papers
 
 - [Conformal Semantic Image Segmentation Post-hoc Quantification of Predictive Uncertainty](https://arxiv.org/pdf/2405.05145)
