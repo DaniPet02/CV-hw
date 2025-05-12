@@ -9,11 +9,14 @@ import globals as G
 def visualize_sample(image_tensor, mask_tensor, class_names=None):
     """
     image_tensor: [3, H, W]
-    mask_tensor: [H, W] with classes integer values
+    mask_tensor: [H, W] with class indices
     """
-    image_np = image_tensor.permute(1, 2, 0).cpu().numpy()  # [H, W, 3]
-    mask_np = mask_tensor.cpu().numpy()  # [H, W]
-    colors = plt.cm.get_cmap('tab20', 20) # Simple Colormap for 20 classes
+    # De-normalizes image before showing it
+    image_np = denormalize(image_tensor).permute(1, 2, 0).cpu().numpy()
+    image_np = np.clip(image_np, 0, 1)  # clip for out-of-range RGB values
+
+    mask_np = mask_tensor.cpu().numpy()
+    colors = plt.cm.get_cmap('tab20', 20)
 
     plt.figure(figsize=(12, 5))
 
@@ -27,7 +30,7 @@ def visualize_sample(image_tensor, mask_tensor, class_names=None):
     plt.title("Segmentation Mask")
     plt.axis("off")
 
-    # Textual Legend for classes
+    # Legend of classes
     unique_classes = torch.unique(mask_tensor).tolist()
     class_labels = [G.CITYSCAPES_CLASSES.get(c, f"Class {c}") for c in unique_classes]
     legend_str = ", ".join([f"{c}: {label}" for c, label in zip(unique_classes, class_labels)])
@@ -35,6 +38,16 @@ def visualize_sample(image_tensor, mask_tensor, class_names=None):
 
     plt.tight_layout()
     plt.show()
+
+
+def denormalize(image_tensor):
+    """
+    De-normalizes the image tensor.
+    image_tensor: [3, H, W] (normalized)
+    """
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(image_tensor.device)
+    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(image_tensor.device)
+    return image_tensor * std + mean
 
 
 def compute_mIoU(preds, targets, num_classes):
@@ -71,7 +84,7 @@ def visualize_predictions(image, pred_mask, true_mask):
     pred_np = pred_mask.cpu().numpy()
     true_np = true_mask.cpu().numpy()
 
-    cmap = plt.cm.get_cmap('tab20', 20)
+    cmap = plt.get_cmap('tab20', 20)
 
     plt.figure(figsize=(15, 5))
 
@@ -92,3 +105,46 @@ def visualize_predictions(image, pred_mask, true_mask):
 
     plt.tight_layout()
     plt.show()
+
+
+def visualize_metrics(metrics):
+    """
+    Visualizes the training and validation metrics over epochs.
+    metrics: dict with keys 'train' and 'val', each containing a list of metric values
+    """
+    plt.figure(figsize=(10, 5))
+    plt.plot(metrics['train'], label="Training mIoU", color='blue')
+    plt.plot(metrics['val'], label="Validation mIoU", color='orange')
+    plt.title("mIoU Over Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("mIoU")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+def visualize_loss(losses):
+    """
+    Visualizes the training loss over epochs.
+    losses: list of loss values
+    """
+    plt.figure(figsize=(10, 5))
+    plt.plot(losses, label="Training Loss", color='blue')
+    plt.title("Training Loss Over Epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+if __name__ == "__main__":
+    # Example usage of the utility functions
+    # Assuming you have a sample image and mask tensors
+    image_tensor = torch.randn(3, 512, 1024)  # Example image tensor
+    mask_tensor = torch.randint(0, G.NUM_CLASSES, (512, 1024))  # Example mask tensor
+    visualize_sample(image_tensor, mask_tensor)
+    # Compute mIoU
+    mIoU, ious = compute_mIoU(mask_tensor.unsqueeze(0), mask_tensor.unsqueeze(0), G.NUM_CLASSES)
+    print(f"Mean IoU: {mIoU}, IoUs per class: {ious}")
+    
