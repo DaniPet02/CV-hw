@@ -28,21 +28,26 @@ metrics.
 
 ### Datasets
 
-- [CityScapes](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
+- [CS GitHub](https://github.com/mcordts/cityscapesScripts/tree/master)
+- [CS Website Download](https://www.cityscapes-dataset.com/downloads/)
+- [CitiScapes Extended Dataset Download](https://www.cityscapes-dataset.com/file-handling/?packageID=3)
+- [CityScapes Noisy Dataset](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
 - [LostAndFound](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [FishyScapes](https://fishyscapes.com)
 
-To avoid overloading the Git repository, download the CityScapes dataset from the link above and ensure it has the following structure:
+To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes dataset `leftImg8bit_trainvaltest.zip (11GB)` from the link `CS Website Download`, rename it `cityscapes`, and ensure it has the following structure:
 
 ```
 CV-HW/
 └── cityscapes/
-    ├── train/
-    │   ├── img/     ← RGB images
-    │   └── label/   ← segmentation masks
-    └── val/
-        ├── img/
-        └── label/
+    ├── img/     ← RGB images
+    │   ├── test/     
+    │   ├── train/   
+    │   └── val/
+    └── label/   ← segmentation masks
+        ├── test/
+        ├── train/
+        └── val/
 ```
 
 In `globals.py`, if you import the dataset out of the src folder and name it `cityscapes`, ensure the path is set to:
