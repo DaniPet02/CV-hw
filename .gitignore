@@ -29,6 +29,7 @@ MANIFEST
 # Dataset ignore
 data/
 cityscapes/
+cityscapes_old/
 *.zip
 *.tar
 *.png

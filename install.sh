@@ -15,9 +15,6 @@ if [ ! -d "$CONDA_DIR" ]; then
 	bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
 	rm ~/miniconda3/miniconda.sh
 	
-	
-
-	
 else
 	echo "[Conda just installed, SKIP]"
 fi
@@ -26,7 +23,7 @@ fi
 source ~/miniconda3/bin/activate
 conda init --all
 
-# create environment MNLP (if not just exist)
+# create environment CV (if not exists)
 ENV=~/miniconda3/envs/cv
 
 if [[ ! -d $ENV  ]]; then

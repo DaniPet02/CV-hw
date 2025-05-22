@@ -35,7 +35,7 @@ metrics.
 - [LostAndFound](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [FishyScapes](https://fishyscapes.com)
 
-To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes dataset `leftImg8bit_trainvaltest.zip (11GB)` from the link `CS Website Download`, rename it `cityscapes`, and ensure it has the following structure:
+To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CS Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
 
 ```
 CV-HW/
@@ -50,6 +50,7 @@ CV-HW/
         └── val/
 ```
 
+Then, by running the function `fix_dataset` you will have the dataset fixed in the right way, without the cities' subfolders, and with nicer files names.
 In `globals.py`, if you import the dataset out of the src folder and name it `cityscapes`, ensure the path is set to:
 ```python
 CITYSCAPES_PATH = "../cityscapes"
@@ -61,3 +62,4 @@ CITYSCAPES_PATH = "../cityscapes"
 - [Conformal Semantic Image Segmentation Post-hoc Quantification of Predictive Uncertainty](https://arxiv.org/pdf/2405.05145)
 - [A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification](https://arxiv.org/pdf/2107.07511)
 - [Road Obstacle Detection based on Unknown Objectness Scores](https://arxiv.org/pdf/2403.18207)
+- [Rethinking Atrous Convolution for Semantic Image Segmentation (DeepLabV3+)](https://arxiv.org/pdf/1706.05587v3)
