@@ -30,6 +30,8 @@ MANIFEST
 data/
 cityscapes/
 cityscapes_old/
+lostandfound/
+
 *.zip
 *.tar
 *.png
