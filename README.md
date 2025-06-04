@@ -22,20 +22,20 @@ metrics.
 
 - [Google Drive](https://drive.google.com/drive/folders/1wAAcfMKKd2QQCEiel5mYU2wyu8uhUWSR?usp=share_link)
 - [Notion Page](https://www.notion.so/Presentation-1eea146c941d8017b40ec1013bf70646?pvs=4)
+- [Canva Presentation](https://www.canva.com/design/DAGpH3Bc13Q/mDIQXsEyhetJE4Pbyk1G_Q/edit)
 
 
 ## Useful Links
 
 ### Datasets
 
+- [CityScapes Website Download](https://www.cityscapes-dataset.com/downloads/)
+- [LostAndFound Website Download](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [CS GitHub](https://github.com/mcordts/cityscapesScripts/tree/master)
-- [CS Website Download](https://www.cityscapes-dataset.com/downloads/)
-- [CitiScapes Extended Dataset Download](https://www.cityscapes-dataset.com/file-handling/?packageID=3)
-- [CityScapes Noisy Dataset](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
-- [LostAndFound](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
 - [FishyScapes](https://fishyscapes.com)
+- [CityScapes Noisy Dataset](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
 
-To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CS Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
+To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CityScapes Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
 
 ```
 CV-HW/
@@ -44,16 +44,30 @@ CV-HW/
     │   ├── test/     
     │   ├── train/   
     │   └── val/
-    └── label/   ← segmentation masks
-        ├── test/
+    └── mask/   ← segmentation masks
+        ├── test/   ← empty
         ├── train/
         └── val/
 ```
 
-Then, by running the function `fix_dataset` you will have the dataset fixed in the right way, without the cities' subfolders, and with nicer files names.
-In `globals.py`, if you import the dataset out of the src folder and name it `cityscapes`, ensure the path is set to:
+Do the same with the LostAndFound dataset: download `leftImg8bit.zip (6GB)` for the RGB images and `gtCoarse.zip (37MB)` for the masks, from the link `LostAndFound Website Download`, add both folders to a new one called `lostandfound`, and ensure it has the following structure:
+
+```
+CV-HW/
+└── lostandfound/
+    ├── img/     ← RGB images
+    │   ├── test/     
+    │   ├── train/   
+    └── mask/   ← segmentation masks
+        ├── test/   ← empty
+        ├── train/
+```
+
+
+Then, by running the functions `fix_cityscapes` and `fix_lostandfound` you will have both datasets fixed in the right way, without the cities' subfolders, and with nicer files names.
+In the `globals` section, if you import the datasets out of the src folder, ensure to set the right relative path:
 ```python
-CITYSCAPES_PATH = "../cityscapes"
+relative_path = "../"
 ```
 
 
