@@ -11,7 +11,7 @@ The aim of this project is to develop a general, model-agnostic framework for ro
 - **Anomaly-Aware Obstacle Segmentation**: integrate into a semantic segmentation model techniques to detect
 obstacles that fall outside known classes.
 
-- **Statistical Uncertainty Quantification**: btain semantic segmentation outputs and obstacle proposals guar-
+- **Statistical Uncertainty Quantification**: obtain semantic segmentation outputs and obstacle proposals guar-
 antees on detection reliability.
 
 - **Comprehensive Evaluation**: benchmark the system using both detection performance metrics and uncertainty
@@ -77,3 +77,4 @@ relative_path = "../"
 - [A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification](https://arxiv.org/pdf/2107.07511)
 - [Road Obstacle Detection based on Unknown Objectness Scores](https://arxiv.org/pdf/2403.18207)
 - [Rethinking Atrous Convolution for Semantic Image Segmentation (DeepLabV3+)](https://arxiv.org/pdf/1706.05587v3)
+- [The Fishyscapes Benchmark: Measuring Blind Spots in Semantic Segmentation](https://arxiv.org/pdf/1904.03215.pdf)
