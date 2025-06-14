@@ -20,129 +20,47 @@ import torch.optim as optim
 from sklearn.metrics import average_precision_score, roc_auc_score, roc_curve
 
 
-##############
-resized_height = 512
-resized_width = 1024
 
-transform = T.Compose([
-    T.Resize((resized_height, resized_width)),  # Resize to half the original size
-    T.ToTensor(),  # converts in [0, 1], shape [3, H, W]
-    T.Normalize(mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])
-])
+############################################# CONSTANTS #############################################
 
+# Macro class index mapping
+MACRO_CLASSES = {
+    "road": 0,
+    "flat": 1,
+    "human": 2,
+    "vehicle": 3,
+    "construction": 4,
+    "background": 5,
+    "pole": 6,
+    "object": 7,  # auxiliary objectness channel
+}
+
+# Map from original label ID to (macro class or None, is_object)   [None is only for the poles and traffic signs and lights]
+CLASS_MAPPING = {
+    7: ("road", False), # road
+    8: ("flat", False), # sidewalk
+    11: ("construction", False), # building
+    12: ("construction", False), # wall
+    13: ("construction", False), # fence
+    17: ("pole", True),  # pole
+    19: ("pole", True),  # traffic sign
+    20: ("pole", True),  # traffic light
+    21: ("background", False), # vegetation
+    22: ("flat", False), # terrain
+    23: ("background", False), # sky
+    24: ("human", True), # person
+    25: ("human", True), # rider
+    26: ("vehicle", True), # car
+    27: ("vehicle", True), # truck
+    28: ("vehicle", True), # bus
+    31: ("vehicle", True), # train
+    32: ("vehicle", True), # motorcycle
+    33: ("vehicle", True), # bicycle
+}
 #############
 
 
 ############################################# DATASETS #############################################
-class CityscapesTrainEvalDataset(Dataset):
-    def __init__(self, img_dir, mask_dir, transform=transform):
-        self.transform = transform 
-        self.img_dir = Path(img_dir)
-        self.mask_dir = Path(mask_dir)
-
-        # Collect all image paths
-        self.img_paths = list(self.img_dir.rglob("*.png"))
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.img_paths[idx]
-
-        # Derive corresponding mask path by adding '_m' before the extension
-        mask_name = img_path.stem + "_m.png"
-        mask_path = self.mask_dir / mask_name
-
-        if not mask_path.exists():
-            print(f"Warning: No mask found for image: {img_path.name}")
-
-        # Load and preprocess image
-        img = Image.open(img_path).convert("RGB")
-        if self.transform:
-            img = self.transform(img)
-        else:
-            img = T.Compose([
-                T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406],
-                            std=[0.229, 0.224, 0.225])
-            ])(img)
-
-        # Load and preprocess mask
-        mask = Image.open(mask_path).convert("L")  # Convert to grayscale (single channel)
-
-        # Resize mask with nearest neighbor interpolation
-        resized_mask = mask.resize((resized_width, resized_height), resample=Image.NEAREST)
-
-        mask_np = np.array(resized_mask, dtype=np.uint8)
-
-        mask_tensor = torch.as_tensor(mask_np, dtype=torch.uint8)
-
-        mask_onehot = convert_label_to_multilabel_one_hot(mask_tensor, "cityscapes")
-
-        return img, mask_onehot, mask_np
-    
-class CityscapesTestDataset(Dataset):
-    def __init__(self, img_dir, transform=transform):
-        self.img_paths = sorted(Path(img_dir).rglob("*.png"))
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.img_paths[idx]
-        img = Image.open(img_path).convert("RGB")
-
-        if self.transform:
-            img = self.transform(img)
-        else:
-            img = T.Compose([
-                T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406],
-                            std=[0.229, 0.224, 0.225])
-            ])(img)
-
-        return img, str(img_path.name)  # Return the filename for later use
-
-class LostAndFoundTrainEvalDataset(Dataset):
-    def __init__(self, img_dir, mask_dir, transform=transform):
-        self.img_dir = Path(img_dir)
-        self.mask_dir = Path(mask_dir)
-        self.img_paths = sorted(self.img_dir.rglob("*.png"))[:1000] # Limit to 1000 images
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.img_paths)
-
-    def __getitem__(self, idx):
-        img_path = self.img_paths[idx]
-        mask_name = img_path.stem + "_m.png"
-        mask_path = self.mask_dir / mask_name
-
-        if not mask_path.exists():
-            print(f"Warning: No mask found for image: {img_path.name}")
-
-        # Load image
-        img = Image.open(img_path).convert("RGB")
-        if self.transform:
-            img = self.transform(img)
-        else:
-            img = T.Compose([
-                T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406],
-                            std=[0.229, 0.224, 0.225])
-            ])(img)
-
-        # Load and resize mask
-        mask = Image.open(mask_path).convert("L")  # grayscale
-        resized_mask = mask.resize((resized_width, resized_height), resample=Image.NEAREST)
-        mask_np = np.array(resized_mask, dtype=np.uint8)
-        mask_tensor = torch.as_tensor(mask_np, dtype=torch.uint8)
-
-        mask_onehot = convert_label_to_multilabel_one_hot(mask_tensor, "lostandfound")
-
-        return img, mask_onehot, mask_np  # [3,H,W], [8,H,W], [H,W]
 
 def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder_in="gtFine", is_delete=False): # is_delete=True if you want to delete the city folders after copying
     """
@@ -270,11 +188,12 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
                     if os.path.isdir(d) and not os.listdir(d):
                         os.rmdir(d)
 
-def convert_label_to_multilabel_one_hot(label, dataset, CLASS_MAPPING, MACRO_CLASSES):
+def convert_label_to_multilabel_one_hot(label, dataset):
     """
     Converts 2D label mask [H, W] with Cityscapes original IDs into a multi-label one-hot encoding tensor [8, H, W].
     The last channel (index 7) corresponds to the 'object' auxiliary channel.
     """
+
 
     LABEL_TO_MACRO_IDX = {}
 
@@ -326,22 +245,7 @@ def convert_label_to_multilabel_one_hot(label, dataset, CLASS_MAPPING, MACRO_CLA
     # Return the resulting multi-label one-hot tensor of shape [8, H, W]
     return multilabel
 
-
 ############################################# BOUNDARY #############################################
-def get_boundary_mask(label_mask, kernel_size=3, iterations=2):
-    """
-    Computes the boundary mask from a label mask using morphological operations.
-    Args:
-        label_mask (numpy.ndarray): Input label mask with shape [H, W].
-        kernel_size (int): Size of the kernel for morphological operations.
-    Returns:
-        numpy.ndarray: Boundary mask with shape [H, W].
-    """
-    kernel = np.ones((kernel_size, kernel_size), np.uint8)
-    dilated = cv2.dilate(label_mask, kernel, iterations=iterations)
-    eroded = cv2.erode(label_mask, kernel, iterations=iterations)
-    boundary = (dilated != eroded).astype(np.uint8)
-    return boundary
 
 def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
     """
@@ -383,8 +287,8 @@ def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
 
     return boundary.squeeze(1).byte()  # Return shape [B, H, W], uint8
 
-
 ############################################# VISUALIZATION #############################################
+
 def visualize_one_hot_vertical(one_hot, class_names=None, max_classes=8):
     """
     Visualizes the one-hot encoded masks vertically.
@@ -432,7 +336,10 @@ def visualize_boundary_mask(label_mask, iterations=2):
     """
     Visualizes the boundary mask.
     """
-    boundary = get_boundary_mask(label_mask, iterations=iterations)
+    kernel = np.ones((3, 3), np.uint8)
+    dilated = cv2.dilate(label_mask, kernel, iterations=iterations)
+    eroded = cv2.erode(label_mask, kernel, iterations=iterations)
+    boundary = (dilated != eroded).astype(np.uint8)
     plt.figure()
     plt.imshow(boundary, cmap='gray')
     plt.title("Boundary Mask")
@@ -517,96 +424,44 @@ def visualize_uos_with_conformal(model, test_image, device, threshold):
     plt.tight_layout()
     plt.show()
 
-
-############################################# NETWORK #############################################
-class MultiLabelDeepLabV3(nn.Module):
-    def __init__(self, n_classes=8):
-        super().__init__()
-        # Load pretrained model
-        self.model = deeplabv3_resnet50(pretrained=True)
-
-        # Replace classifier to output 8 channels with sigmoid
-        self.model.classifier[-1] = nn.Conv2d(
-            in_channels=256,
-            out_channels=n_classes,
-            kernel_size=1
-        )
+############################################# UOS #############################################
+def unknown_objectness_score(preds):
+    """
+    Computes the unknown objectness score from the model predictions.
+    Args:
+        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
+    Returns:
+        torch.Tensor: Unknown objectness scores of shape [B, H, W].
+    """
+    obj_scores = preds[:, 7, :, :]
+    class_scores = preds[:, 0:7, :, :]
     
-    def forward(self, x):
-        x = self.model(x)['out']
-        return torch.sigmoid(x)  # Apply sigmoid for multilabel outputs
-    
+    unknown_scores = torch.prod(1 - class_scores, dim=1)
+    uos = obj_scores * unknown_scores
+    return uos
 
-############################################# LOSS FUNCTION #############################################
-class BoundaryAwareBCELoss(nn.Module):
-    def __init__(self, lambda_weight=3.0):
-        super().__init__()
-        self.lambda_weight = lambda_weight
+############################################# CONFORMAL P. #############################################
+def nonconformity_score(preds):
+    """
+    Computes the nonconformity score for the predictions.
+    Args:
+        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
+    Returns:
+        torch.Tensor: Nonconformity scores of shape [B, H, W].
+    """
+    uos = unknown_objectness_score(preds)  # S_unk-objectness(x)
+    return uos  # α(x): nonconformity score  #Se non funziona prova a usare solo uos
 
-    def forward(self, pred, target, boundary_mask):
-        #to avoid log(0)
-        eps = 1e-7
-
-        #standard BCE loss
-        bce = -(target * torch.log(pred + eps) + (1 - target) * torch.log(1 - pred + eps))
-        normal_term = bce.mean()
-
-        boundary_mask = boundary_mask.float()
-        #expansion to (B, C, H, W) to do the multiplication
-
-        if boundary_mask.dim() == 3:
-            boundary_mask = boundary_mask.unsqueeze(1)
-            
-        boundary_mask = boundary_mask.expand(-1, pred.shape[1], -1, -1)
-
-        #boundary aware BCE loss
-        boundary_bce = bce * boundary_mask
-        num_boundary_pixels = boundary_mask.sum(dim=(1, 2, 3)).clamp(min=1.0) #boundary pixels of each image
-        boundary_loss = boundary_bce.sum(dim=(1, 2, 3)) / num_boundary_pixels
-        boundary_term = boundary_loss.mean()
-
-        return normal_term + self.lambda_weight * boundary_term
-    
-class BoundaryAwareBCELossFineTuning(nn.Module):
-    def __init__(self, lambda_weight=3.0):
-        super().__init__()
-        self.lambda_weight = lambda_weight
-
-    def forward(self, pred, target, boundary_mask):
-        #to avoid log(0)
-        eps = 1e-7
-
-        #standard BCE loss
-        bce = -(target * torch.log(pred + eps) + (1 - target) * torch.log(1 - pred + eps))
-
-        # -------------------------------
-        # Create a mask: pixels with at least one GT class > 0
-        # Shape: (B, H, W)
-        valid_pixel_mask = (target.sum(dim=1) > 0).float()
-
-        # Expand to match shape (B, C, H, W)
-        valid_pixel_mask = valid_pixel_mask.unsqueeze(1).expand_as(target)
-
-        # Apply the pixel mask
-        bce = bce * valid_pixel_mask
-        num_valid_pixels = valid_pixel_mask.sum(dim=(1, 2, 3)).clamp(min=1.0)
-        normal_loss = bce.sum(dim=(1, 2, 3)) / num_valid_pixels
-        normal_term = normal_loss.mean()
-        # -------------------------------
-
-        # Expand boundary mask if needed
-        if boundary_mask.dim() == 3:
-            boundary_mask = boundary_mask.unsqueeze(1)
-        boundary_mask = boundary_mask.expand_as(target)
-
-            
-        boundary_bce = bce * boundary_mask
-        num_boundary_pixels = (boundary_mask * valid_pixel_mask).sum(dim=(1, 2, 3)).clamp(min=1.0)
-        boundary_loss = boundary_bce.sum(dim=(1, 2, 3)) / num_boundary_pixels
-        boundary_term = boundary_loss.mean()
-
-        return normal_term + self.lambda_weight * boundary_term
-    
+def p_value(alpha, calibration_scores):
+    """
+    Computes the p-value for a given alpha threshold based on calibration scores.
+    Args:
+        alpha (float): The alpha threshold.
+        calibration_scores (np.ndarray): Array of calibration scores.
+    Returns:
+        float: The p-value.
+    """
+    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)  # The +1 in numerator and denominator ensures that the resulting p-value is never exactly 0 or 1 (this is called smoothing for finite-sample guarantees)
 
 ############################################# TEST #############################################
 def evaluate_metrics(model, dataloader, device='cuda'):
@@ -686,91 +541,3 @@ def mean_iou(preds, targets, threshold=0.5):
     """
     per_class_iou = iou_per_class(preds, targets, threshold)
     return sum(per_class_iou) / len(per_class_iou)
-
-def dice_score(preds, targets, threshold=0.5, eps=1e-7):
-    """
-    Computes the Dice score for each class in multi-label predictions.
-    Args:
-        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
-        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
-        threshold (float): Threshold for converting probabilities to binary predictions.
-        eps (float): Small value to avoid division by zero.
-    Returns:
-        list: Dice scores for each class.
-    """
-    preds = (preds > threshold).float()
-    scores = []
-    for cls in range(preds.shape[1]):
-        pred_cls = preds[:, cls]
-        target_cls = targets[:, cls]
-        intersection = (pred_cls * target_cls).sum(dim=(1, 2))
-        union = pred_cls.sum(dim=(1, 2)) + target_cls.sum(dim=(1, 2))
-        dice = (2 * intersection + eps) / (union + eps)
-        scores.append(dice.mean().item())
-    return scores
-
-def precision_recall(preds, targets, threshold=0.5, eps=1e-7):
-    """
-    Computes precision and recall for each class in multi-label predictions.
-    Args:
-        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
-        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
-        threshold (float): Threshold for converting probabilities to binary predictions.
-        eps (float): Small value to avoid division by zero.
-    Returns:
-        tuple: (precisions, recalls) where each is a list of values for each class.
-    """
-    preds = (preds > threshold).float()
-    precisions, recalls = [], []
-    for cls in range(preds.shape[1]):
-        pred_cls = preds[:, cls]
-        target_cls = targets[:, cls]
-        tp = (pred_cls * target_cls).sum(dim=(1, 2))
-        fp = (pred_cls * (1 - target_cls)).sum(dim=(1, 2))
-        fn = ((1 - pred_cls) * target_cls).sum(dim=(1, 2))
-        precision = (tp + eps) / (tp + fp + eps)
-        recall = (tp + eps) / (tp + fn + eps)
-        precisions.append(precision.mean().item())
-        recalls.append(recall.mean().item())
-    return precisions, recalls
-
-
-############################################# UOS #############################################
-def unknown_objectness_score(preds):
-    """
-    Computes the unknown objectness score from the model predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Unknown objectness scores of shape [B, H, W].
-    """
-    obj_scores = preds[:, 7, :, :]
-    class_scores = preds[:, 0:7, :, :]
-    
-    unknown_scores = torch.prod(1 - class_scores, dim=1)
-    uos = obj_scores * unknown_scores
-    return uos
-
-
-############################################# CONFORMAL P. #############################################
-def nonconformity_score(preds):
-    """
-    Computes the nonconformity score for the predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Nonconformity scores of shape [B, H, W].
-    """
-    uos = unknown_objectness_score(preds)  # S_unk-objectness(x)
-    return uos  # α(x): nonconformity score  #Se non funziona prova a usare solo uos
-
-def p_value(alpha, calibration_scores):
-    """
-    Computes the p-value for a given alpha threshold based on calibration scores.
-    Args:
-        alpha (float): The alpha threshold.
-        calibration_scores (np.ndarray): Array of calibration scores.
-    Returns:
-        float: The p-value.
-    """
-    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)  # The +1 in numerator and denominator ensures that the resulting p-value is never exactly 0 or 1 (this is called smoothing for finite-sample guarantees)
