@@ -1,22 +1,10 @@
-#import sklearn
 import os
-from PIL import Image
 import torch
-import torch.nn as nn
-from tqdm import tqdm
 import cv2
 import numpy as np
-import random
 import shutil
-import torchvision.transforms as T
 import torch.nn.functional as F
-import torchvision
-from pathlib import Path
 import matplotlib.pyplot as plt
-from torch.utils.data import Dataset, DataLoader, random_split
-from torchvision.models.segmentation import deeplabv3_resnet50
-#import segmentation_models_pytorch as smp
-import torch.optim as optim
 from sklearn.metrics import average_precision_score, roc_auc_score, roc_curve
 
 
@@ -306,12 +294,12 @@ def visualize_one_hot_vertical(one_hot, class_names=None, max_classes=8):
     plt.tight_layout()
     plt.show()
 
-def visualize_erosion_mask(label_mask):
+def visualize_erosion_mask(label_mask, iterations):
     """
     Visualizes the erosion mask of a label mask.
     """
     kernel = np.ones((3, 3), np.uint8)
-    erosion = cv2.erode(label_mask, kernel, iterations=2)
+    erosion = cv2.erode(label_mask, kernel, iterations=iterations)
     plt.figure()
     plt.imshow(erosion, cmap='gray')
     plt.title("Erosion Mask")
@@ -319,12 +307,12 @@ def visualize_erosion_mask(label_mask):
     plt.tight_layout()
     plt.show()
 
-def visualize_dilation_mask(label_mask):
+def visualize_dilation_mask(label_mask, iterations):
     """
     Visualizes the dilation mask of a label mask.
     """
     kernel = np.ones((3, 3), np.uint8)
-    dilation = cv2.dilate(label_mask, kernel, iterations=2)
+    dilation = cv2.dilate(label_mask, kernel, iterations=iterations)
     plt.figure()
     plt.imshow(dilation, cmap='gray')
     plt.title("Dilation Mask")
