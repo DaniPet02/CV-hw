@@ -293,17 +293,10 @@ def unknown_objectness_score(preds):
 
 def nonconformity_score(preds):
     """
-    Computes the nonconformity score for the predictions computed only as UOS instead of 1-UOS.
+    Computes the nonconformity score for the predictions computed as UOS.
     """
     uos = unknown_objectness_score(preds)
     return uos
-
-def p_value(alpha, calibration_scores):
-    """
-    Computes the p-value for a given alpha threshold based on calibration scores.
-    """
-    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)
-
 
 ############################################# TEST #############################################
 
@@ -488,9 +481,8 @@ def uos_heatmap(img_tensor, uos_tensor, threshold=0.5, alpha_val=0.5):
     if img.max() <= 1.0:
         img = (img * 255).astype(np.uint8)
 
-    # Normalize UOS to [0, 1]
     uos = uos_tensor.cpu().numpy()
-    uos = (uos - uos.min()) / (uos.max() - uos.min())
+    
     # Apply threshold
     uos = np.where(uos > threshold, uos, 0.0)
 
@@ -502,20 +494,21 @@ def uos_heatmap(img_tensor, uos_tensor, threshold=0.5, alpha_val=0.5):
     plt.axis('off')
     plt.show()
 
-def visualize_uos_with_conformal(model, test_image, device, threshold):
+def visualize_uos_with_conformal(test_image, uos_tensor, threshold):
     """
     Compute and visualize the UOS heatmap on the original image applying 
     conformal threshold to detect unknown pixels.
 
     threshold: UOS threshold from calibration.
     """
-    model.eval()
-    with torch.no_grad():
-        output = model(test_image.unsqueeze(0).to(device))  # shape: (1, num_classes, H, W)
-        uos = unknown_objectness_score(output)[0].cpu().numpy()  # shape: (H, W)
+    img = test_image.permute(1, 2, 0).cpu().numpy()
+    if img.max() <= 1.0:
+        img = (img * 255).astype(np.uint8)
+
+    uos = uos_tensor.cpu().numpy()
 
     # Create binary mask of unknowns using conformal threshold
-    unknown_mask = uos > threshold
+    unknown_mask = np.where(uos > threshold, uos, 0.0)
 
     plt.figure(figsize=(12, 6))
 
@@ -534,7 +527,7 @@ def visualize_uos_with_conformal(model, test_image, device, threshold):
     plt.subplot(1, 3, 3)
     plt.title("Unknown Object Mask (Conformal Prediction)")
     plt.imshow(img_np)
-    plt.imshow(unknown_mask, cmap='cool', alpha=0.5)
+    plt.imshow(unknown_mask, cmap='cool', alpha=0.5, vmin=0, vmax=1)
     plt.axis('off')
 
     plt.tight_layout()
