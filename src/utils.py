@@ -45,7 +45,6 @@ CLASS_MAPPING = {
     32: ("vehicle", True), # motorcycle
     33: ("vehicle", True), # bicycle
 }
-#############
 
 
 ############################################# DATASETS #############################################
@@ -233,6 +232,7 @@ def convert_label_to_multilabel_one_hot(label, dataset):
     # Return the resulting multi-label one-hot tensor of shape [8, H, W]
     return multilabel
 
+
 ############################################# BOUNDARY #############################################
 
 def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
@@ -275,9 +275,161 @@ def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
 
     return boundary.squeeze(1).byte()  # Return shape [B, H, W], uint8
 
+
+############################################# UOS #############################################
+def unknown_objectness_score(preds):
+    """
+    Computes the unknown objectness score from the model predictions.
+    Args:
+        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
+    Returns:
+        torch.Tensor: Unknown objectness scores of shape [B, H, W].
+    """
+    obj_scores = preds[:, 7, :, :]
+    class_scores = preds[:, 0:7, :, :]
+    
+    unknown_scores = torch.prod(1 - class_scores, dim=1)
+    uos = obj_scores * unknown_scores
+    return uos
+
+
+############################################# CONFORMAL P. #############################################
+def nonconformity_score(preds):
+    """
+    Computes the nonconformity score for the predictions.
+    Args:
+        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
+    Returns:
+        torch.Tensor: Nonconformity scores of shape [B, H, W].
+    """
+    uos = unknown_objectness_score(preds)  # S_unk-objectness(x)
+    return uos  # α(x): nonconformity score  #Se non funziona prova a usare solo uos
+
+def p_value(alpha, calibration_scores):
+    """
+    Computes the p-value for a given alpha threshold based on calibration scores.
+    Args:
+        alpha (float): The alpha threshold.
+        calibration_scores (np.ndarray): Array of calibration scores.
+    Returns:
+        float: The p-value.
+    """
+    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)  # The +1 in numerator and denominator ensures that the resulting p-value is never exactly 0 or 1 (this is called smoothing for finite-sample guarantees)
+
+
+############################################# TEST #############################################
+def evaluate_metrics(model, dataloader, class_indices, device):
+    """
+    Computes AP, FPR@95, and AUROC on selected class indices for multi-class segmentation.
+
+    Args:
+        model (torch.nn.Module): Trained PyTorch model for segmentation (output shape: [B, 1, H, W]).
+        dataloader (torch.utils.data.DataLoader): Validation loader yielding (images, masks).
+        class_indices (int or list of int): Index or indices of classes to keep (e.g. 1 or [1, 2]).
+        device (str): Device for model inference.
+
+    Returns:
+        dict: Dictionary with AP, FPR95, and AUROC values over the selected mask region.
+    """
+    model.eval()
+    all_preds = []
+    all_targets = []
+
+    if isinstance(class_indices, int):
+        class_indices = [class_indices]
+
+    with torch.no_grad():
+        for images, masks in dataloader:
+            images = images.to(device)
+            masks = masks.to(device)
+
+            probs = model(images)  # shape: [B, 1, H, W], already sigmoid
+            probs = probs.view(-1).cpu()
+            masks = masks.view(-1).cpu()
+
+            all_preds.append(probs)
+            all_targets.append(masks)
+
+    preds_flat = torch.cat(all_preds).numpy()
+    targets_flat = torch.cat(all_targets).numpy()
+
+    # Build binary ground truth for selected classes
+    filter_mask = np.isin(targets_flat, class_indices)
+    if not np.any(filter_mask):
+        return {
+            'AP': float('nan'),
+            'FPR95': float('nan'),
+            'AUROC': float('nan'),
+            'Note': 'No pixels found for selected classes.'
+        }
+
+    # Binary labels: 1 for selected classes, 0 for everything else
+    filtered_targets = np.isin(targets_flat, class_indices).astype(np.uint8)
+    filtered_preds = preds_flat[filter_mask]
+    filtered_targets = filtered_targets[filter_mask]
+
+    if len(np.unique(filtered_targets)) < 2:
+        return {
+            'AP': float('nan'),
+            'FPR95': float('nan'),
+            'AUROC': float('nan'),
+            'Note': 'Filtered pixels contain only one class. Metrics not computable.'
+        }
+
+    ap = average_precision_score(filtered_targets, filtered_preds)
+    auroc = roc_auc_score(filtered_targets, filtered_preds)
+
+    fpr, tpr, _ = roc_curve(filtered_targets, filtered_preds)
+    try:
+        fpr95 = fpr[np.where(tpr >= 0.95)[0][0]]
+    except IndexError:
+        fpr95 = 1.0  # Conservative fallback
+
+    return {
+        'AP': ap,
+        'FPR95': fpr95,
+        'AUROC': auroc
+    }
+
+def iou_per_class(preds, targets, threshold=0.5, eps=1e-7):
+    """
+    Computes IoU for each class in multi-label predictions.
+    Args:
+        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
+        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
+        threshold (float): Threshold for converting probabilities to binary predictions.
+        eps (float): Small value to avoid division by zero.
+    Returns:
+        list: IoU for each class.
+    """
+    preds = (preds > threshold).float()
+    ious = []
+    for cls in range(preds.shape[1]):
+        pred_cls = preds[:, cls]
+        target_cls = targets[:, cls]
+        intersection = (pred_cls * target_cls).sum(dim=(1, 2))
+        union = (pred_cls + target_cls - pred_cls * target_cls).sum(dim=(1, 2))
+        iou = (intersection + eps) / (union + eps)
+        ious.append(iou.mean().item())
+    return ious
+
+def mean_iou(preds, targets, threshold=0.5):
+    """
+    Computes mean IoU across all classes.
+    Args:
+        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
+        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
+        threshold (float): Threshold for converting probabilities to binary predictions.
+    Returns:
+        float: Mean IoU across all classes.
+    """
+    per_class_iou = iou_per_class(preds, targets, threshold)
+    return sum(per_class_iou) / len(per_class_iou)
+
+
 ############################################# VISUALIZATION #############################################
 
-def visualize_one_hot_vertical(one_hot, class_names=None, max_classes=8):
+def visualize_one_hot(one_hot, class_names=None, max_classes=8):
     """
     Visualizes the one-hot encoded masks vertically.
     """
@@ -320,7 +472,7 @@ def visualize_dilation_mask(label_mask, iterations):
     plt.tight_layout()
     plt.show()
 
-def visualize_boundary_mask(label_mask, iterations=2):
+def visualize_boundary_mask(label_mask, iterations):
     """
     Visualizes the boundary mask.
     """
@@ -411,121 +563,3 @@ def visualize_uos_with_conformal(model, test_image, device, threshold):
 
     plt.tight_layout()
     plt.show()
-
-############################################# UOS #############################################
-def unknown_objectness_score(preds):
-    """
-    Computes the unknown objectness score from the model predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Unknown objectness scores of shape [B, H, W].
-    """
-    obj_scores = preds[:, 7, :, :]
-    class_scores = preds[:, 0:7, :, :]
-    
-    unknown_scores = torch.prod(1 - class_scores, dim=1)
-    uos = obj_scores * unknown_scores
-    return uos
-
-############################################# CONFORMAL P. #############################################
-def nonconformity_score(preds):
-    """
-    Computes the nonconformity score for the predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Nonconformity scores of shape [B, H, W].
-    """
-    uos = unknown_objectness_score(preds)  # S_unk-objectness(x)
-    return uos  # α(x): nonconformity score  #Se non funziona prova a usare solo uos
-
-def p_value(alpha, calibration_scores):
-    """
-    Computes the p-value for a given alpha threshold based on calibration scores.
-    Args:
-        alpha (float): The alpha threshold.
-        calibration_scores (np.ndarray): Array of calibration scores.
-    Returns:
-        float: The p-value.
-    """
-    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)  # The +1 in numerator and denominator ensures that the resulting p-value is never exactly 0 or 1 (this is called smoothing for finite-sample guarantees)
-
-############################################# TEST #############################################
-def evaluate_metrics(model, dataloader, device='cuda'):
-    """
-    Computes AP, FPR@95 and AUROC over the given validation dataloader.
-
-    Args:
-        model (torch.nn.Module): Trained PyTorch model for segmentation.
-        dataloader (torch.utils.data.DataLoader): Dataloader yielding (images, masks).
-        device (str): Device to run evaluation on.
-
-    Returns:
-        dict: Dictionary with 'AP', 'FPR95', and 'AUROC' scores.
-    """
-    model.eval()
-    all_preds = []
-    all_targets = []
-
-    with torch.no_grad():
-        for images, masks in dataloader:
-            images = images.to(device)
-            masks = masks.to(device)
-
-            probs = model(images)  # Already sigmoid'd, shape: [B, 1, H, W]
-            all_preds.append(probs.view(-1).cpu())
-            all_targets.append(masks.view(-1).cpu())
-
-    preds_flat = torch.cat(all_preds).numpy()
-    targets_flat = torch.cat(all_targets).numpy()
-
-    ap = average_precision_score(targets_flat, preds_flat)
-    auroc = roc_auc_score(targets_flat, preds_flat)
-
-    fpr, tpr, _ = roc_curve(targets_flat, preds_flat)
-    try:
-        fpr95 = fpr[np.where(tpr >= 0.95)[0][0]]
-    except IndexError:
-        fpr95 = 1.0  # Worst-case fallback
-
-    return {
-        'AP': ap,
-        'FPR95': fpr95,
-        'AUROC': auroc
-    }
-
-def iou_per_class(preds, targets, threshold=0.5, eps=1e-7):
-    """
-    Computes IoU for each class in multi-label predictions.
-    Args:
-        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
-        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
-        threshold (float): Threshold for converting probabilities to binary predictions.
-        eps (float): Small value to avoid division by zero.
-    Returns:
-        list: IoU for each class.
-    """
-    preds = (preds > threshold).float()
-    ious = []
-    for cls in range(preds.shape[1]):
-        pred_cls = preds[:, cls]
-        target_cls = targets[:, cls]
-        intersection = (pred_cls * target_cls).sum(dim=(1, 2))
-        union = (pred_cls + target_cls - pred_cls * target_cls).sum(dim=(1, 2))
-        iou = (intersection + eps) / (union + eps)
-        ious.append(iou.mean().item())
-    return ious
-
-def mean_iou(preds, targets, threshold=0.5):
-    """
-    Computes mean IoU across all classes.
-    Args:
-        preds (torch.Tensor): Predicted probabilities of shape [B, C, H, W].
-        targets (torch.Tensor): Ground truth labels of shape [B, C, H, W].
-        threshold (float): Threshold for converting probabilities to binary predictions.
-    Returns:
-        float: Mean IoU across all classes.
-    """
-    per_class_iou = iou_per_class(preds, targets, threshold)
-    return sum(per_class_iou) / len(per_class_iou)
