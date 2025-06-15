@@ -59,7 +59,7 @@ CV-HW/
     │   ├── test/     
     │   ├── train/   
     └── mask/   ← segmentation masks
-        ├── test/   ← empty
+        ├── test/
         ├── train/
 ```
 
