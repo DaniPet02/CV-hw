@@ -23,7 +23,7 @@ MACRO_CLASSES = {
     "object": 7,  # auxiliary objectness channel
 }
 
-# Map from original label ID to (macro class or None, is_object)   [None is only for the poles and traffic signs and lights]
+# Map from original label ID to (macro class, is_object)
 CLASS_MAPPING = {
     7: ("road", False), # road
     8: ("flat", False), # sidewalk
@@ -49,10 +49,13 @@ CLASS_MAPPING = {
 
 ############################################# DATASETS #############################################
 
-def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder_in="gtFine", is_delete=False): # is_delete=True if you want to delete the city folders after copying
+def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder_in="gtFine", is_delete=False):
     """
-    Fixes the CityScapes dataset by renaming the files and removing the city folders.
+    Fixes the CityScapes dataset structure by renaming the files and removing the city folders.
+    
+    is_delete=True if you want to delete the city folders after copying
     """
+
     splits = ['train', 'val', 'test']
    
     for split in splits:
@@ -72,7 +75,7 @@ def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder
             city_mask_dir = os.path.join(mask_dir, city)
 
             if not os.path.isdir(city_img_dir):
-                continue  # Skips non-directory files
+                continue
 
             for filename in os.listdir(city_img_dir):
                 if not filename.endswith('leftImg8bit.png'):
@@ -86,7 +89,7 @@ def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder
                 new_img_name = f"{new_base}{ext}"
                 shutil.copy(img_path, os.path.join(img_out, new_img_name))
 
-                if split != 'test': # For test split, we only copy the image
+                if split != 'test':
                     # Renames and copies all 'label' associated files
                     suffixes = ['_gtFine_labelIds.png', '_gtFine_color.png', '_gtFine_instanceIds.png', '_gtFine_polygons.json']
                     for suffix in suffixes:
@@ -94,7 +97,7 @@ def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder
                             original_name = base_prefix + suffix
                             source = os.path.join(city_mask_dir, original_name)
                             if os.path.exists(source):
-                                new_name = f"{new_base}_m.png"  # es. train1_m.png
+                                new_name = f"{new_base}_m.png"
                                 shutil.copy(source, os.path.join(mask_out, new_name))
                         else:
                             continue
@@ -112,9 +115,11 @@ def fix_cityscapes(path_in, path_out, image_folder_in="leftImg8bit", mask_folder
                     if os.path.isdir(d) and not os.listdir(d):
                         os.rmdir(d)
 
-def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_folder_in="gtCoarse", is_delete=False): # is_delete=True if you want to delete the city folders after copying
+def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_folder_in="gtCoarse", is_delete=False):
     """
     Fixes the LostAndFound dataset by renaming the files and removing the city folders.
+
+    is_delete=True if you want to delete the city folders after copying
     """
     splits = ['train', 'test']
    
@@ -135,7 +140,7 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
             city_mask_dir = os.path.join(mask_dir, city)
 
             if not os.path.isdir(city_img_dir):
-                continue  # Skips non-directory files
+                continue
 
             for filename in os.listdir(city_img_dir):
                 if not filename.endswith('leftImg8bit.png'):
@@ -149,7 +154,6 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
                 new_img_name = f"{new_base}{ext}"
                 shutil.copy(img_path, os.path.join(img_out, new_img_name))
 
-                
                 # Renames and copies all 'label' associated files
                 suffixes = ['_gtCoarse_labelIds.png', '_gtCoarse_color.png', '_gtCoarse_instanceIds.png', '_gtCoarse_labelTrainIds.png', '_gtCoarse_polygons.json']
                 for suffix in suffixes:
@@ -157,7 +161,7 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
                         original_name = base_prefix + suffix
                         source = os.path.join(city_mask_dir, original_name)
                         if os.path.exists(source):
-                            new_name = f"{new_base}_m.png"  # es. train1_m.png
+                            new_name = f"{new_base}_m.png"
                             shutil.copy(source, os.path.join(mask_out, new_name))
                     else:
                         continue
@@ -181,7 +185,6 @@ def convert_label_to_multilabel_one_hot(label, dataset):
     The last channel (index 7) corresponds to the 'object' auxiliary channel.
     """
 
-
     LABEL_TO_MACRO_IDX = {}
 
     for original_id, (macro_class, is_object) in CLASS_MAPPING.items():
@@ -191,30 +194,26 @@ def convert_label_to_multilabel_one_hot(label, dataset):
             # For None macro class, we don't assign a macro_idx (only object channel will be set)
             LABEL_TO_MACRO_IDX[original_id] = None
 
-    # Get the spatial dimensions of the label mask
     height, width = label.shape
-
-    # Initialize the output tensor with 8 channels (macro-classes), filled with zeros.
-    # Each channel corresponds to a macro-class.
     multilabel = torch.zeros((8, height, width), dtype=torch.float32)
 
     if dataset == "cityscapes":
-        # Iterate over each original class ID defined in the CLASS_MAPPING
+        # Iterate over each original class ID in CLASS_MAPPING
         for original_id, (_, is_object) in CLASS_MAPPING.items():
 
-            # Create a boolean mask of where the input label equals the current original class ID
+            # Boolean mask of where the input label equals the current original class ID
             mask = (label == original_id)
 
-            # Look up the macro-class index for this class ID, or None if it doesn't belong to any
+            # Look up the macro-class index for this class ID
             macro_idx = LABEL_TO_MACRO_IDX[original_id]
 
-            # If this class maps to a macro-class, set 1 at those pixel locations in the corresponding channel
+            # If this class maps to a macro-class we set 1 at those pixel in the corresponding channel
             if macro_idx is not None:
-                multilabel[macro_idx][mask] = 1.0  # Set the macro-class channel to 1 where the mask is True
+                multilabel[macro_idx][mask] = 1.0
 
-            # If this class is considered an 'object', also set the 'object' channel (index 6) to 1
+            # If this class is considered an 'object' we also set the 'object' channel (index 7) to 1
             if is_object:
-                multilabel[MACRO_CLASSES["object"]][mask] = 1.0  # Set the object class channel to 1
+                multilabel[MACRO_CLASSES["object"]][mask] = 1.0
     elif dataset == "lostandfound":
         height, width = label.shape
         multilabel = torch.zeros((8, height, width), dtype=torch.float32)
@@ -229,7 +228,7 @@ def convert_label_to_multilabel_one_hot(label, dataset):
     else:
         print("you have to choose a dataset between cityscapes and lostandfound\n ")
 
-    # Return the resulting multi-label one-hot tensor of shape [8, H, W]
+    # multi-label one-hot tensor of shape [8, H, W]
     return multilabel
 
 
@@ -237,22 +236,18 @@ def convert_label_to_multilabel_one_hot(label, dataset):
 
 def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
     """
-    Computes the boundary mask for a batch of label masks using morphological operations.
-    Args:
-        label_masks (torch.Tensor): Tensor of shape [B, H, W] or [B, 1, H, W], with binary masks (0 or 1).
-        kernel_size (int): Size of the kernel for morphological operations.
-        iterations (int): Number of times to apply dilation and erosion.
-    Returns:
-        torch.Tensor: Boundary masks of shape [B, H, W], dtype=torch.uint8.
+    Computes the boundary mask of shape [B, H, W], as difference between dilated and eroded regions, for a batch of label masks.
+
+    kernel_size: Size of the kernel to use.
+    iterations: Number of times to apply dilation and erosion (higher values result in thicker boundaries).
     """
 
     if label_masks.dim() == 3:
         label_masks = label_masks.unsqueeze(1)  # [B, 1, H, W]
 
-    # Ensure float type for convolution
     label_masks = label_masks.float()
 
-    # Define kernel (morphological structuring element)
+    # Define kernel
     device = label_masks.device
     kernel = torch.ones((1, 1, kernel_size, kernel_size), device=device)
 
@@ -277,47 +272,41 @@ def get_boundary_mask_batch(label_masks, kernel_size=3, iterations=2):
 
 
 ############################################# UOS #############################################
+
 def unknown_objectness_score(preds):
     """
-    Computes the unknown objectness score from the model predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Unknown objectness scores of shape [B, H, W].
+    Computes the unknown objectness score (UOS) from the model predictions. The UOS is computed as follows:
+    
+    UOS = obj_scores * Π(1 - class_scores_i)  for i in number of classes
     """
     obj_scores = preds[:, 7, :, :]
     class_scores = preds[:, 0:7, :, :]
     
     unknown_scores = torch.prod(1 - class_scores, dim=1)
     uos = obj_scores * unknown_scores
+
+    # unknown objectness scores of shape [B, H, W]
     return uos
 
 
 ############################################# CONFORMAL P. #############################################
+
 def nonconformity_score(preds):
     """
-    Computes the nonconformity score for the predictions.
-    Args:
-        preds (torch.Tensor): Model predictions of shape [B, C, H, W] where C includes objectness channel.
-    Returns:
-        torch.Tensor: Nonconformity scores of shape [B, H, W].
+    Computes the nonconformity score for the predictions computed only as UOS instead of 1-UOS.
     """
-    uos = unknown_objectness_score(preds)  # S_unk-objectness(x)
-    return uos  # α(x): nonconformity score  #Se non funziona prova a usare solo uos
+    uos = unknown_objectness_score(preds)
+    return uos
 
 def p_value(alpha, calibration_scores):
     """
     Computes the p-value for a given alpha threshold based on calibration scores.
-    Args:
-        alpha (float): The alpha threshold.
-        calibration_scores (np.ndarray): Array of calibration scores.
-    Returns:
-        float: The p-value.
     """
-    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)  # The +1 in numerator and denominator ensures that the resulting p-value is never exactly 0 or 1 (this is called smoothing for finite-sample guarantees)
+    return (np.sum(calibration_scores <= alpha) + 1) / (len(calibration_scores) + 1)
 
 
 ############################################# TEST #############################################
+
 def evaluate_metrics(model, dataloader, class_indices, device):
     """
     Computes AP, FPR@95, and AUROC on selected class indices for multi-class segmentation.
@@ -489,11 +478,8 @@ def visualize_boundary_mask(label_mask, iterations):
 
 def uos_heatmap(img_tensor, uos_tensor, threshold=0.5, alpha_val=0.5):
     """
-    Superpose the heatmap of the unknown objectness score to the image,
-    showing only pixels above a given threshold and maintaining consistent brightness.
+    Superpose the heatmap of the unknown objectness score to the original image.
     
-    img_tensor: [3, H, W], torch.Tensor in [0, 1] or [0, 255]
-    uos_tensor: [H, W], torch.Tensor
     threshold: float, minimum normalized UOS value to be shown
     alpha_val: float, fixed transparency level for visible heatmap areas
     """
@@ -502,12 +488,12 @@ def uos_heatmap(img_tensor, uos_tensor, threshold=0.5, alpha_val=0.5):
     if img.max() <= 1.0:
         img = (img * 255).astype(np.uint8)
 
-    # Normalize UOS
+    # Normalize UOS to [0, 1]
     uos = uos_tensor.cpu().numpy()
-    uos = (uos - uos.min()) / (uos.max() - uos.min())  # Normalize to [0, 1]
-    uos = np.where(uos > threshold, uos, 0.0)  # Apply threshold
+    uos = (uos - uos.min()) / (uos.max() - uos.min())
+    # Apply threshold
+    uos = np.where(uos > threshold, uos, 0.0)
 
-    # Display
     plt.figure(figsize=(10, 5))
     plt.imshow(img)
     plt.imshow(uos, cmap='hot', alpha=alpha_val, vmin=0, vmax=1)  # Use 'hot' colormap for heatmap
@@ -518,17 +504,10 @@ def uos_heatmap(img_tensor, uos_tensor, threshold=0.5, alpha_val=0.5):
 
 def visualize_uos_with_conformal(model, test_image, device, threshold):
     """
-    Compute and visualize the UOS heatmap on the test image
-    applying conformal threshold to detect unknown pixels.
+    Compute and visualize the UOS heatmap on the original image applying 
+    conformal threshold to detect unknown pixels.
 
-    Args:
-        model: Trained model.
-        test_image: Single test image tensor (C, H, W).
-        device: CUDA or CPU.
-        threshold: UOS threshold from calibration.
-
-    Returns:
-        None. Displays heatmap overlay.
+    threshold: UOS threshold from calibration.
     """
     model.eval()
     with torch.no_grad():
@@ -538,12 +517,10 @@ def visualize_uos_with_conformal(model, test_image, device, threshold):
     # Create binary mask of unknowns using conformal threshold
     unknown_mask = uos > threshold
 
-    # Visualize heatmap of UOS and overlay unknown mask
     plt.figure(figsize=(12, 6))
 
     plt.subplot(1, 3, 1)
     plt.title("Original Image")
-    # Convert tensor to numpy and transpose channels for plt (H, W, C)
     img_np = test_image.cpu().numpy().transpose(1, 2, 0)
     plt.imshow(img_np)
     plt.axis('off')
@@ -557,7 +534,6 @@ def visualize_uos_with_conformal(model, test_image, device, threshold):
     plt.subplot(1, 3, 3)
     plt.title("Unknown Object Mask (Conformal Prediction)")
     plt.imshow(img_np)
-    # Overlay unknown mask with transparency
     plt.imshow(unknown_mask, cmap='cool', alpha=0.5)
     plt.axis('off')
 
