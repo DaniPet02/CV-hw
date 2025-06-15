@@ -179,6 +179,59 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
                     if os.path.isdir(d) and not os.listdir(d):
                         os.rmdir(d)
 
+
+def fix_roadanomaly(path_in, path_out):
+    """
+    Fixes the RoadAnomaly dataset structure by renaming the files and removing the labels' folders.
+    
+    is_delete=True if you want to delete the city folders after copying
+    """
+
+    subfolder_in = "frames"
+    count = 1
+    working_dir = os.path.join(path_in, subfolder_in)
+
+    substring_to_remove_from_mask = ".labels"
+
+    # New destination directories
+    img_out = os.path.join(path_out, 'img')
+    mask_out = os.path.join(path_out, 'mask')
+    os.makedirs(img_out, exist_ok=True)
+    os.makedirs(mask_out, exist_ok=True)
+
+    # Iterate on sub-folders
+    for frame in os.listdir(working_dir):
+
+        frame_path = os.path.join(working_dir, frame)
+        if not os.path.isdir(frame_path):
+            continue
+
+        mask_dir = os.path.join(working_dir, frame)
+
+        for filename in os.listdir(mask_dir):
+            
+        
+            if not filename.endswith('semantic_color.png'):
+                continue
+            mask_path = os.path.join(mask_dir, filename)
+    
+            base_prefix = filename.replace('semantic_color.png', '')
+
+            # Renames and copies RGB
+            new_base = f"{count}"
+            ext = '.png'
+            new_mask_name = f"mask_{new_base}{ext}"
+            shutil.copy(mask_path, os.path.join(mask_out, new_mask_name))
+
+            img_name = frame.replace(".labels", ".webp")
+            img_path = os.path.join(working_dir, img_name)
+            new_image_name = f"img_{new_base}{ext}"
+            shutil.copy(img_path, os.path.join(img_out, new_image_name))
+
+            count += 1
+                    
+
+
 def convert_label_to_multilabel_one_hot(label, dataset):
     """
     Converts 2D label mask [H, W] with Cityscapes original IDs into a multi-label one-hot encoding tensor [8, H, W].
@@ -225,6 +278,14 @@ def convert_label_to_multilabel_one_hot(label, dataset):
 
         multilabel[MACRO_CLASSES["road"]][road_mask] = 1.0
         multilabel[MACRO_CLASSES["object"]][object_mask] = 1.0
+
+    elif dataset == "roadanomaly":
+        height, width = label.shape
+        multilabel = torch.zeros((8, height, width), dtype=torch.float32)
+
+        anomaly_mask = (label != 0)  # Anomaly pixels are not equal to 0
+
+        multilabel[MACRO_CLASSES["object"]][anomaly_mask] = 1.0
     else:
         print("you have to choose a dataset between cityscapes and lostandfound\n ")
 
