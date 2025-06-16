@@ -179,7 +179,6 @@ def fix_lostandfound(path_in, path_out, image_folder_in="leftImg8bit", mask_fold
                     if os.path.isdir(d) and not os.listdir(d):
                         os.rmdir(d)
 
-
 def fix_roadanomaly(path_in, path_out):
     """
     Fixes the RoadAnomaly dataset structure by renaming the files and removing the labels' folders.
@@ -230,8 +229,6 @@ def fix_roadanomaly(path_in, path_out):
 
             count += 1
                     
-
-
 def convert_label_to_multilabel_one_hot(label, dataset):
     """
     Converts 2D label mask [H, W] with Cityscapes original IDs into a multi-label one-hot encoding tensor [8, H, W].
@@ -469,6 +466,125 @@ def mean_iou(preds, targets, threshold=0.5):
     per_class_iou = iou_per_class(preds, targets, threshold)
     return sum(per_class_iou) / len(per_class_iou)
 
+############################################# EVALUATION #############################################
+
+def evaluate_detection_performance_metrics(model, dataloader, ignore_class=7, eps=1e-7, device="cpu"):
+    """
+    Evaluate segmentation model on dataloader, returning pixel accuracy, mean IoU, mean F1 (Dice).
+    """
+    model.eval()
+    pixel_acc_sum = 0
+    iou_sum = 0
+    f1_sum = 0
+    n_batches = 0
+
+    with torch.no_grad():
+        for images, masks, _ in dataloader:
+            images = images.to(device)
+            masks = masks.to(device)
+
+            preds_logits = model(images)
+
+            # Pixel Accuracy
+            # Exclude ignore_class channel and take argmax
+            preds = preds_logits[:, :ignore_class, :, :]
+            pred_classes = torch.argmax(preds, dim=1)
+
+            if masks.dim() == 4 and masks.shape[1] > 1:
+                # Convert one-hot mask [B,C,H,W] to class indices [B,H,W]
+                masks = torch.argmax(masks, dim=1)
+
+            valid_mask = masks != ignore_class
+            correct = (pred_classes == masks) & valid_mask
+            pixel_acc = correct.sum().float() / valid_mask.sum().float()
+
+            # IoU per class
+            ious = []
+            for cls in range(ignore_class):
+                pred_mask = (pred_classes == cls)
+                target_mask = (masks == cls)
+
+                intersection = (pred_mask & target_mask).sum().float()
+                union = (pred_mask | target_mask).sum().float()
+                iou = (intersection + eps) / (union + eps)
+                ious.append(iou)
+            mean_iou = torch.stack(ious).mean()
+
+            # F1 score per class
+            f1s = []
+            for cls in range(ignore_class):
+                pred_mask = (pred_classes == cls)
+                target_mask = (masks == cls)
+
+                intersection = (pred_mask & target_mask).sum().float()
+                pred_sum = pred_mask.sum().float()
+                target_sum = target_mask.sum().float()
+                f1 = (2 * intersection + eps) / (pred_sum + target_sum + eps)
+                f1s.append(f1)
+            mean_f1 = torch.stack(f1s).mean()
+
+            pixel_acc_sum += pixel_acc.item()
+            iou_sum += mean_iou.item()
+            f1_sum += mean_f1.item()
+            n_batches += 1
+
+    # Compute average metrics
+    pixel_accuracy = pixel_acc_sum / n_batches
+    mean_iou = iou_sum / n_batches
+    mean_f1 = f1_sum / n_batches
+
+    return {
+        'pixel_accuracy': pixel_accuracy,
+        'mean_iou': mean_iou,
+        'mean_f1': mean_f1,
+    }
+
+def evaluate_uncertainty_metrics(model, dataloader, class_index=7, device="cpu"):
+    """
+    Computes AP, AUROC, FPR@95 based on predicted probabilitiess for a specific class in segmentation.
+    """
+    model.eval()
+    all_preds = []
+    all_targets = []
+
+    with torch.no_grad():
+        for images, masks, _ in dataloader:
+            images = images.to(device)
+            masks = masks.to(device)
+            
+            # Extract ground truth for class 7 (unknown objects)
+            gt_binary = masks[:, 7, :, :]
+
+            probs = model(images)
+            uos = unknown_objectness_score(probs)
+            uos = uos.cpu().numpy() 
+            uos = uos.reshape(-1)
+            gt_flat = gt_binary.reshape(-1).cpu().numpy().astype(np.uint8)
+
+            all_preds.append(uos)
+            all_targets.append(gt_flat)
+
+    preds_flat = np.concatenate(all_preds)
+    targets_flat = np.concatenate(all_targets)
+
+    # AP
+    ap = average_precision_score(targets_flat, preds_flat)
+
+    # AUROC
+    auroc = roc_auc_score(targets_flat, preds_flat)
+
+    # FPR@95TPR
+    fpr, tpr, thresholds = roc_curve(targets_flat, preds_flat)
+    try:
+        fpr95 = fpr[np.where(tpr >= 0.95)[0][0]]
+    except IndexError:
+        fpr95 = 1.0
+
+    return {
+        'AP': ap,
+        'FPR95': fpr95,
+        'AUROC': auroc
+    }
 
 ############################################# VISUALIZATION #############################################
 
