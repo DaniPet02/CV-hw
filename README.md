@@ -17,23 +17,14 @@ antees on detection reliability.
 - **Comprehensive Evaluation**: benchmark the system using both detection performance metrics and uncertainty
 metrics.
 
-
-## Project Links
-
-- [Google Drive](https://drive.google.com/drive/folders/1wAAcfMKKd2QQCEiel5mYU2wyu8uhUWSR?usp=share_link)
-- [Notion Page](https://www.notion.so/Presentation-1eea146c941d8017b40ec1013bf70646?pvs=4)
-- [Canva Presentation](https://www.canva.com/design/DAGpH3Bc13Q/mDIQXsEyhetJE4Pbyk1G_Q/edit)
-
-
 ## Useful Links
 
 ### Datasets
 
 - [CityScapes Website Download](https://www.cityscapes-dataset.com/downloads/)
 - [LostAndFound Website Download](https://wwwlehre.dhbw-stuttgart.de/~sgehrig/lostAndFoundDataset/index.html)
+- [RoadAnomaly Website Download](https://www.epfl.ch/labs/cvlab/data/road-anomaly/)
 - [CS GitHub](https://github.com/mcordts/cityscapesScripts/tree/master)
-- [FishyScapes](https://fishyscapes.com)
-- [CityScapes Noisy Dataset](https://www.kaggle.com/datasets/shuvoalok/cityscapes/data)
 
 To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CityScapes Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
 
@@ -63,18 +54,19 @@ CV-HW/
         ├── train/
 ```
 
+Same again with the RoadAnomaly dataset: download `RoadAnomaly.zip[WebP,13MiB]` for the RGB images from the linked website `RoadAnomaly Website Download`.
 
-Then, by running the functions `fix_cityscapes` and `fix_lostandfound` you will have both datasets fixed in the right way, without the cities' subfolders, and with nicer files names.
+Then, by running the functions `fix_cityscapes`, `fix_lostandfound` and `fix_roadanomaly` you will have all three datasets fixed in the right way, without subfolders, and with nicer files names.
 In the `globals` section, if you import the datasets out of the src folder, ensure to set the right relative path:
 ```python
 relative_path = "../"
 ```
 
 
-### Papers
+### References
 
 - [Conformal Semantic Image Segmentation Post-hoc Quantification of Predictive Uncertainty](https://arxiv.org/pdf/2405.05145)
 - [A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification](https://arxiv.org/pdf/2107.07511)
 - [Road Obstacle Detection based on Unknown Objectness Scores](https://arxiv.org/pdf/2403.18207)
 - [Rethinking Atrous Convolution for Semantic Image Segmentation (DeepLabV3+)](https://arxiv.org/pdf/1706.05587v3)
-- [The Fishyscapes Benchmark: Measuring Blind Spots in Semantic Segmentation](https://arxiv.org/pdf/1904.03215.pdf)
+- [Computer Vision: Algorithms and Applications](https://szeliski.org/Book/)
