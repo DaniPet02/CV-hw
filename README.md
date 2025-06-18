@@ -1,6 +1,10 @@
 # CV-hw
 Uncertainty-Aware Road Obstacle Identification
 
+## Abstract
+
+Reliable road obstacle identification is a critical requirement for the safe operation of autonomous driving systems. Traditional object detection methods often struggle to recognize unexpected or unknown obstacles, as they are typically limited to predefined categories. The ability to detect obstacles beyond known classes, particularly in dynamic and complex environments, is essential for the safety of autonomous vehicles. Recent advancements in semantic segmentation, anomaly detection, and uncertainty quantification offer new avenues to improve detection accuracy and reliability, enabling systems to recognize both known and unknown road obstacles. Such uncertainty-aware methods provide formal statistical guarantees on the reliability of predictions, a crucial aspect for ensuring safe and robust decision-making in real-world driving conditions.
+
 
 ## The Task
 
@@ -26,7 +30,8 @@ metrics.
 - [RoadAnomaly Website Download](https://www.epfl.ch/labs/cvlab/data/road-anomaly/)
 - [CS GitHub](https://github.com/mcordts/cityscapesScripts/tree/master)
 
-To avoid overloading the Git repository, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CityScapes Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
+THe main script to execute the pipeline is in the `main_notebook.ipynb`, while all utils functions are in the `utils.py` file, to avoid overloading the notebook and keep everything cleaner.
+Furthermore, to avoid overloading the Git repository, download all useful datasets from their official websites. Specifically, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CityScapes Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
 
 ```
 CV-HW/
