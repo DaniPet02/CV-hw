@@ -64,7 +64,7 @@ Same again with the RoadAnomaly dataset: download `RoadAnomaly.zip[WebP,13MiB]` 
 Then, by running the functions `fix_cityscapes`, `fix_lostandfound` and `fix_roadanomaly` you will have all three datasets fixed in the right way, without subfolders, and with nicer files names.
 In the `globals` section, if you import the datasets out of the src folder, ensure to set the right relative path:
 ```python
-relative_path = "../"
+RELATIVE_PATH = "../"
 ```
 
 
