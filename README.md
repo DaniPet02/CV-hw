@@ -30,7 +30,7 @@ metrics.
 - [RoadAnomaly Website Download](https://www.epfl.ch/labs/cvlab/data/road-anomaly/)
 - [CS GitHub](https://github.com/mcordts/cityscapesScripts/tree/master)
 
-THe main script to execute the pipeline is in the `main_notebook.ipynb`, while all utils functions are in the `utils.py` file, to avoid overloading the notebook and keep everything cleaner.
+The main script to execute the pipeline is in the `main_notebook.ipynb`, while all utils functions are in the `utils.py` file, to avoid overloading the notebook and keep everything cleaner.
 Furthermore, to avoid overloading the Git repository, download all useful datasets from their official websites. Specifically, after having registered on the cityscapes website, download the CityScapes datasets `leftImg8bit_trainvaltest.zip (11GB)` for the RGB images and `gtFine_trainvaltest.zip (241MB)` for the masks, from the link `CityScapes Website Download`, add both folders to a new one called `cityscapes`, and ensure it has the following structure:
 
 ```
